@@ -16,12 +16,10 @@
 
 package com.github.springtestdbunit;
 
-import java.lang.annotation.Annotation;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-
+import com.github.springtestdbunit.annotation.*;
+import com.github.springtestdbunit.assertion.DatabaseAssertion;
+import com.github.springtestdbunit.dataset.DataSetLoader;
+import com.github.springtestdbunit.dataset.DataSetModifier;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dbunit.database.IDatabaseConnection;
@@ -32,16 +30,11 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import com.github.springtestdbunit.annotation.DatabaseOperation;
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.DatabaseSetups;
-import com.github.springtestdbunit.annotation.DatabaseTearDown;
-import com.github.springtestdbunit.annotation.DatabaseTearDowns;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.annotation.ExpectedDatabases;
-import com.github.springtestdbunit.assertion.DatabaseAssertion;
-import com.github.springtestdbunit.dataset.DataSetLoader;
-import com.github.springtestdbunit.dataset.DataSetModifier;
+import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Internal delegate class used to run tests with support for {@link DatabaseSetup &#064;DatabaseSetup},
