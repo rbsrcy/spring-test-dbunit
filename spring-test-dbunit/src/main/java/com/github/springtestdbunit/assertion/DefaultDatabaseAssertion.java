@@ -20,6 +20,9 @@ import org.dbunit.Assertion;
 import org.dbunit.DatabaseUnitException;
 import org.dbunit.dataset.IDataSet;
 import org.dbunit.dataset.ITable;
+import org.dbunit.dataset.filter.IColumnFilter;
+
+import java.util.List;
 
 /**
  * Default database assertion strategy which uses DbUnit {@link Assertion#assertEquals(IDataSet, IDataSet)}.
@@ -34,6 +37,16 @@ class DefaultDatabaseAssertion implements DatabaseAssertion {
 	}
 
 	public void assertEquals(ITable expectedTable, ITable actualTable) throws DatabaseUnitException {
+		Assertion.assertEquals(expectedTable, actualTable);
+	}
+
+	@Override
+	public void assertEquals(IDataSet expectedDataSet, IDataSet actualDataSet, List<IColumnFilter> columnFilters) throws DatabaseUnitException {
+		Assertion.assertEquals(expectedDataSet, actualDataSet);
+	}
+
+	@Override
+	public void assertEquals(ITable expectedTable, ITable actualTable, List<IColumnFilter> columnFilters) throws DatabaseUnitException {
 		Assertion.assertEquals(expectedTable, actualTable);
 	}
 

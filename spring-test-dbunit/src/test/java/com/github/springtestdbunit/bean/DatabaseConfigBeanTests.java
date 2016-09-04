@@ -16,12 +16,6 @@
 
 package com.github.springtestdbunit.bean;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-
-import java.util.HashSet;
-import java.util.Set;
-
 import org.dbunit.database.DatabaseConfig;
 import org.dbunit.database.DefaultMetadataHandler;
 import org.dbunit.database.IMetadataHandler;
@@ -33,6 +27,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests for {@link DatabaseConfigBean}.
@@ -144,6 +144,8 @@ public class DatabaseConfigBeanTests {
 	public void testSkipOracleRecyclebinTables() {
 		doTest("skipOracleRecyclebinTables", DatabaseConfig.FEATURE_SKIP_ORACLE_RECYCLEBIN_TABLES, Boolean.FALSE);
 	}
+
+
 
 	private void doTest(String propertyName, String databaseConfigProperty, Object newValue) {
 		Object initialValue = this.configBeanWrapper.getPropertyValue(propertyName);

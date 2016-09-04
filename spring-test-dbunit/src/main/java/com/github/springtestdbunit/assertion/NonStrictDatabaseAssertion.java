@@ -16,17 +16,15 @@
 
 package com.github.springtestdbunit.assertion;
 
-import java.util.LinkedList;
-import java.util.List;
-
 import org.dbunit.Assertion;
 import org.dbunit.DatabaseUnitException;
-import org.dbunit.dataset.Column;
-import org.dbunit.dataset.Columns;
-import org.dbunit.dataset.DataSetException;
-import org.dbunit.dataset.IDataSet;
-import org.dbunit.dataset.ITable;
-import org.dbunit.dataset.ITableMetaData;
+import org.dbunit.dataset.*;
+import org.dbunit.dataset.filter.IColumnFilter;
+
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Implements non-strict database assertion strategy : compares data sets ignoring all tables and columns which are not
@@ -50,6 +48,23 @@ class NonStrictDatabaseAssertion implements DatabaseAssertion {
 		Assertion.assertEqualsIgnoreCols(expectedTable, actualTable, ignoredColumns);
 	}
 
+	@Override
+	public void assertEquals(IDataSet expectedDataSet, IDataSet actualDataSet, List<IColumnFilter> columnFilters) throws DatabaseUnitException {
+		for (String tableName : expectedDataSet.getTableNames()) {
+			ITable expectedTable = expectedDataSet.getTable(tableName);
+			ITable actualTable = actualDataSet.getTable(tableName);
+			assertEquals(expectedTable, actualTable, columnFilters);
+		}
+	}
+
+	@Override
+	public void assertEquals(ITable expectedTable, ITable actualTable, List<IColumnFilter> columnFilters) throws DatabaseUnitException {
+		Set<String> ignoredColumns = getColumnsToIgnore(expectedTable.getTableMetaData(),
+				actualTable.getTableMetaData(), columnFilters);
+		Assertion.assertEqualsIgnoreCols(expectedTable, actualTable,
+				ignoredColumns.toArray(new String[ignoredColumns.size()]));
+	}
+
 	protected String[] getColumnsToIgnore(ITableMetaData expectedMetaData, ITableMetaData actualMetaData)
 			throws DataSetException {
 		Column[] notSpecifiedInExpected = Columns.getColumnDiff(expectedMetaData, actualMetaData).getActual();
@@ -58,6 +73,29 @@ class NonStrictDatabaseAssertion implements DatabaseAssertion {
 			result.add(column.getColumnName());
 		}
 		return result.toArray(new String[result.size()]);
+	}
+
+	private Set<String> getColumnsToIgnore(ITableMetaData expectedMetaData, ITableMetaData actualMetaData,
+										   List<IColumnFilter> columnFilters) throws DataSetException {
+		if (columnFilters.size() == 0) {
+			return getColumnsToIgnore2(expectedMetaData, actualMetaData);
+		}
+		Set<String> ignoredColumns = new LinkedHashSet<String>();
+		for (IColumnFilter filter : columnFilters) {
+			FilteredTableMetaData filteredExpectedMetaData = new FilteredTableMetaData(expectedMetaData, filter);
+			ignoredColumns.addAll(getColumnsToIgnore2(filteredExpectedMetaData, actualMetaData));
+		}
+		return ignoredColumns;
+	}
+
+	protected Set<String> getColumnsToIgnore2(ITableMetaData expectedMetaData, ITableMetaData actualMetaData)
+			throws DataSetException {
+		Column[] notSpecifiedInExpected = Columns.getColumnDiff(expectedMetaData, actualMetaData).getActual();
+		Set<String> result = new LinkedHashSet<String>();
+		for (Column column : notSpecifiedInExpected) {
+			result.add(column.getColumnName());
+		}
+		return result;
 	}
 
 }
