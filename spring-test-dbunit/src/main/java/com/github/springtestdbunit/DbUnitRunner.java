@@ -127,36 +127,42 @@ class DbUnitRunner {
 		DataSetModifier modifier = getModifier(testContext, annotations);
 		for (int i = annotations.size() - 1; i >= 0; i--) {
 			ExpectedDatabase annotation = annotations.get(i);
-			String query = annotation.query();
-			String table = annotation.table();
-			IDataSet expectedDataSet = loadDataset(testContext, annotation.value(), modifier);
-			IDatabaseConnection connection = connections.get(annotation.connection());
-			if (expectedDataSet != null) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("Veriftying @DatabaseTest expectation using " + annotation.value());
-				}
-				DatabaseAssertion assertion = annotation.assertionMode().getDatabaseAssertion();
-				List<IColumnFilter> columnFilters = getColumnFilters(annotation);
-				if (StringUtils.hasLength(query)) {
-					Assert.hasLength(table, "The table name must be specified when using a SQL query");
-					ITable expectedTable = expectedDataSet.getTable(table);
-					ITable actualTable = connection.createQueryTable(table, query);
-					assertion.assertEquals(expectedTable, actualTable,columnFilters);
-				} else if (StringUtils.hasLength(table)) {
-					ITable actualTable = connection.createTable(table);
-					ITable expectedTable = expectedDataSet.getTable(table);
-					assertion.assertEquals(expectedTable, actualTable,columnFilters);
-				} else {
-					IDataSet actualDataSet = connection.createDataSet();
-					assertion.assertEquals(expectedDataSet, actualDataSet,columnFilters);
-				}
-			}
+			verifyExpected(testContext, connections, modifier, annotation);
 			if (annotation.override()) {
 				// No need to test any more
 				return;
 			}
 		}
 
+	}
+
+	private void verifyExpected(DbUnitTestContext testContext, DatabaseConnections connections, DataSetModifier modifier, ExpectedDatabase annotation) throws Exception {
+		String query = annotation.query();
+		String table = annotation.table();
+
+		List<IDataSet> expectedDataSets = loadDatasets(testContext, annotation.value(), modifier);
+		IDatabaseConnection connection = connections.get(annotation.connection());
+		if (expectedDataSets != null && expectedDataSets.size() > 0) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Veriftying @DatabaseTest expectation using " + annotation.value());
+            }
+			IDataSet expectedDataSet = new CompositeDataSet(expectedDataSets.toArray(new IDataSet[expectedDataSets.size()]));
+            DatabaseAssertion assertion = annotation.assertionMode().getDatabaseAssertion();
+            List<IColumnFilter> columnFilters = getColumnFilters(annotation);
+            if (StringUtils.hasLength(query)) {
+                Assert.hasLength(table, "The table name must be specified when using a SQL query");
+                ITable expectedTable = expectedDataSet.getTable(table);
+                ITable actualTable = connection.createQueryTable(table, query);
+                assertion.assertEquals(expectedTable, actualTable,columnFilters);
+            } else if (StringUtils.hasLength(table)) {
+                ITable actualTable = connection.createTable(table);
+                ITable expectedTable = expectedDataSet.getTable(table);
+                assertion.assertEquals(expectedTable, actualTable,columnFilters);
+            } else {
+                IDataSet actualDataSet = connection.createDataSet();
+                assertion.assertEquals(expectedDataSet, actualDataSet,columnFilters);
+            }
+        }
 	}
 
 	private List<IColumnFilter> getColumnFilters(ExpectedDatabase annotation) throws Exception {
@@ -217,6 +223,15 @@ class DbUnitRunner {
 			return dataSet;
 		}
 		return null;
+	}
+
+	private List<IDataSet> loadDatasets(DbUnitTestContext testContext, String[] dataSetLocations, DataSetModifier modifier) throws Exception {
+		List<IDataSet> dataSets = new ArrayList<IDataSet>();
+		for (String dataSetLocation : dataSetLocations) {
+			IDataSet dataSet = loadDataset(testContext, dataSetLocation, modifier);
+			dataSets.add(dataSet);
+		}
+		return dataSets;
 	}
 
 	private org.dbunit.operation.DatabaseOperation getDbUnitDatabaseOperation(DbUnitTestContext testContext,

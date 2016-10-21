@@ -50,7 +50,7 @@ public @interface ExpectedDatabase {
 	 * @return The dataset locations
 	 * @see DbUnitConfiguration#dataSetLoader()
 	 */
-	String value() default "";
+	String[] value() default {};
 
 	/**
 	 * Database assertion mode to use. Default is {@link DatabaseAssertionMode#DEFAULT}.
