@@ -32,6 +32,8 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Method;
 import java.util.*;
 
 /**
@@ -53,7 +55,10 @@ class DbUnitRunner {
 	 * @throws Exception
 	 */
 	public void beforeTestMethod(DbUnitTestContext testContext) throws Exception {
-		Collection<DatabaseSetup> annotations = getAnnotations(testContext, DatabaseSetups.class, DatabaseSetup.class);
+//		Collection<DatabaseSetup> annotations = getAnnotations(testContext, DatabaseSetups.class, DatabaseSetup.class);
+//		setupOrTeardown(testContext, true, AnnotationAttributes.get(annotations));
+		Annotations<DatabaseSetup> annotations = Annotations.get(testContext, DatabaseSetups.class,
+				DatabaseSetup.class);
 		setupOrTeardown(testContext, true, AnnotationAttributes.get(annotations));
 	}
 
@@ -65,13 +70,19 @@ class DbUnitRunner {
 	public void afterTestMethod(DbUnitTestContext testContext) throws Exception {
 		try {
 			try {
+//				verifyExpected(testContext,
+//						getAnnotations(testContext, ExpectedDatabases.class, ExpectedDatabase.class));
 				verifyExpected(testContext,
-						getAnnotations(testContext, ExpectedDatabases.class, ExpectedDatabase.class));
+						Annotations.get(testContext, ExpectedDatabases.class, ExpectedDatabase.class));
 			} finally {
-				Collection<DatabaseTearDown> annotations = getAnnotations(testContext, DatabaseTearDowns.class,
+//				Collection<DatabaseTearDown> annotations = getAnnotations(testContext, DatabaseTearDowns.class,
+//						DatabaseTearDown.class);
+
+				Annotations<DatabaseTearDown> annotations = Annotations.get(testContext, DatabaseTearDowns.class,
 						DatabaseTearDown.class);
 				try {
 					setupOrTeardown(testContext, false, AnnotationAttributes.get(annotations));
+//					setupOrTeardown(testContext, false, AnnotationAttributes.get(annotations));
 				} catch (RuntimeException ex) {
 					if (testContext.getTestException() == null) {
 						throw ex;
@@ -113,6 +124,39 @@ class DbUnitRunner {
 				annotations.add(annotation);
 			}
 		}
+	}
+
+	private void verifyExpected(DbUnitTestContext testContext, Annotations<ExpectedDatabase> annotations)
+			throws Exception {
+		if (testContext.getTestException() != null) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Skipping @DatabaseTest expectation due to test exception "
+						+ testContext.getTestException().getClass());
+			}
+			return;
+		}
+		DatabaseConnections connections = testContext.getConnections();
+		DataSetModifier modifier = getModifier(testContext, annotations);
+		boolean override = false;
+		for (ExpectedDatabase annotation : annotations.getMethodAnnotations()) {
+			verifyExpected(testContext, connections, modifier, annotation);
+			override |= annotation.override();
+		}
+		if (!override) {
+			for (ExpectedDatabase annotation : annotations.getClassAnnotations()) {
+				verifyExpected(testContext, connections, modifier, annotation);
+			}
+		}
+	}
+
+	private DataSetModifier getModifier(DbUnitTestContext testContext, Annotations<ExpectedDatabase> annotations) {
+		DataSetModifiers modifiers = new DataSetModifiers();
+		for (ExpectedDatabase annotation : annotations) {
+			for (Class<? extends DataSetModifier> modifierClass : annotation.modifiers()) {
+				modifiers.add(testContext.getTestInstance(), modifierClass);
+			}
+		}
+		return modifiers;
 	}
 
 	private void verifyExpected(DbUnitTestContext testContext, List<ExpectedDatabase> annotations) throws Exception {
@@ -271,7 +315,7 @@ class DbUnitRunner {
 			return this.connection;
 		}
 
-		public static <T extends Annotation> Collection<AnnotationAttributes> get(Collection<T> annotations) {
+		public static <T extends Annotation> Collection<AnnotationAttributes> get(Annotations<T> annotations) {
 			List<AnnotationAttributes> annotationAttributes = new ArrayList<AnnotationAttributes>();
 			for (T annotation : annotations) {
 				annotationAttributes.add(new AnnotationAttributes(annotation));
@@ -280,5 +324,108 @@ class DbUnitRunner {
 		}
 
 	}
+
+//	private static class AnnotationAttributes {
+//
+//		private final DatabaseOperation type;
+//
+//		private final String[] value;
+//
+//		private final String connection;
+//
+//		public AnnotationAttributes(Annotation annotation) {
+//			Assert.state((annotation instanceof DatabaseSetup) || (annotation instanceof DatabaseTearDown),
+//					"Only DatabaseSetup and DatabaseTearDown annotations are supported");
+//			Map<String, Object> attributes = AnnotationUtils.getAnnotationAttributes(annotation);
+//			this.type = (DatabaseOperation) attributes.get("type");
+//			this.value = (String[]) attributes.get("value");
+//			this.connection = (String) attributes.get("connection");
+//		}
+//
+//		public DatabaseOperation getType() {
+//			return this.type;
+//		}
+//
+//		public String[] getValue() {
+//			return this.value;
+//		}
+//
+//		public String getConnection() {
+//			return this.connection;
+//		}
+//
+//		public static <T extends Annotation> Collection<AnnotationAttributes> get(Collection<T> annotations) {
+//			List<AnnotationAttributes> annotationAttributes = new ArrayList<AnnotationAttributes>();
+//			for (T annotation : annotations) {
+//				annotationAttributes.add(new AnnotationAttributes(annotation));
+//			}
+//			return annotationAttributes;
+//		}
+//
+//	}
+
+    private static class Annotations<T extends Annotation> implements Iterable<T> {
+
+        private final List<T> classAnnotations;
+
+        private final List<T> methodAnnotations;
+
+        private final List<T> allAnnotations;
+
+        public Annotations(DbUnitTestContext context, Class<? extends Annotation> container, Class<T> annotation) {
+            this.classAnnotations = getAnnotations(context.getTestClass(), container, annotation);
+            this.methodAnnotations = getAnnotations(context.getTestMethod(), container, annotation);
+            List<T> allAnnotations = new ArrayList<T>(this.classAnnotations.size() + this.methodAnnotations.size());
+            allAnnotations.addAll(this.classAnnotations);
+            allAnnotations.addAll(this.methodAnnotations);
+            this.allAnnotations = Collections.unmodifiableList(allAnnotations);
+        }
+
+        private List<T> getAnnotations(AnnotatedElement element, Class<? extends Annotation> container,
+                                       Class<T> annotation) {
+            List<T> annotations = new ArrayList<T>();
+            if (element instanceof Class) {
+                addAnnotationToList(annotations, AnnotationUtils.findAnnotation((Class<?>)element, annotation));
+            }
+            if (element instanceof Method) {
+                addRepeatableAnnotationsToList(annotations, AnnotationUtils.findAnnotation((Method)element, container));
+            }
+            return Collections.unmodifiableList(annotations);
+        }
+
+        private void addAnnotationToList(List<T> annotations, T annotation) {
+            if (annotation != null) {
+                annotations.add(annotation);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        private void addRepeatableAnnotationsToList(List<T> annotations, Annotation container) {
+            if (container != null) {
+                T[] value = (T[]) AnnotationUtils.getValue(container);
+                for (T annotation : value) {
+                    annotations.add(annotation);
+                }
+            }
+        }
+
+        public List<T> getClassAnnotations() {
+            return this.classAnnotations;
+        }
+
+        public List<T> getMethodAnnotations() {
+            return this.methodAnnotations;
+        }
+
+        public Iterator<T> iterator() {
+            return this.allAnnotations.iterator();
+        }
+
+        private static <T extends Annotation> Annotations<T> get(DbUnitTestContext testContext,
+                                                                 Class<? extends Annotation> container, Class<T> annotation) {
+            return new Annotations<T>(testContext, container, annotation);
+        }
+
+    }
 
 }
