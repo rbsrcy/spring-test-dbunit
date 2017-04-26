@@ -22,6 +22,7 @@ import com.github.springtestdbunit.dataset.DataSetLoader;
 import com.github.springtestdbunit.dataset.DataSetModifier;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.dbunit.database.DatabaseConfig;
 import org.dbunit.database.IDatabaseConnection;
 import org.dbunit.dataset.CompositeDataSet;
 import org.dbunit.dataset.IDataSet;
@@ -197,8 +198,11 @@ class DbUnitRunner {
 							+ operation + " on " + datasets.toString());
 				}
 				IDatabaseConnection connection = connections.get(annotation.getConnection());
+				DatabaseConfig config = connection.getConfig();
+				config.setProperty("http://www.dbunit.org/features/allowEmptyFields",true);
 				IDataSet dataSet = new CompositeDataSet(datasets.toArray(new IDataSet[datasets.size()]));
 				dbUnitOperation.execute(connection, dataSet);
+				connection.getConnection().commit();
 			}
 		}
 	}

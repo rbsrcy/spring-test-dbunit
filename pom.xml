@@ -10,4 +10,16 @@
 		<module>spring-test-dbunit</module>
 		<module>spring-test-dbunit-sample</module>
 	</modules>
+	<distributionManagement>
+		<repository>
+			<id>releases</id>
+			<name>Iboxpay Releases</name>
+			<url>http://172.30.0.45:8081/nexus/content/repositories/releases</url>
+		</repository>
+		<snapshotRepository>
+			<id>snapshots</id>
+			<name>Iboxpay Snapshots</name>
+			<url>http://172.30.0.45:8081/nexus/content/repositories/snapshots</url>
+		</snapshotRepository>
+	</distributionManagement>
 </project>
